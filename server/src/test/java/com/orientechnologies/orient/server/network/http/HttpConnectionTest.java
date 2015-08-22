@@ -73,6 +73,7 @@ public class HttpConnectionTest extends BaseHttpDatabaseTest {
       return;
 
     final int max = OGlobalConfiguration.NETWORK_MAX_CONCURRENT_SESSIONS.getValueAsInteger();
+    final int timeout = OGlobalConfiguration.NETWORK_BINARY_READ_RESPONSE_MAX_TIMES.getValueAsInteger();
 
     int TOTAL = max * 3;
 
@@ -98,13 +99,14 @@ public class HttpConnectionTest extends BaseHttpDatabaseTest {
 
       System.out.printf("\nConnections still open: " + openConnections);
 
-      if (openConnections <= 1)
+      if (openConnections <= 2)
+        // there's a Listener + Server Status connection, the listener is opened early and elsewhere
         break;
 
       Thread.sleep(1000);
     }
 
-    Assert.assertTrue(conns.size() <= 1);
+    Assert.assertTrue(openConnections <= 2);
   }
 
   @Override

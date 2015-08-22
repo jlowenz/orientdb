@@ -74,12 +74,22 @@ public abstract class OSQLFunctionAbstract implements OSQLFunction {
   }
 
   @Override
+  public boolean selectsRecordDuringAggregation() {
+    return false;
+  }
+
+  @Override
   public boolean filterResult() {
     return false;
   }
 
   @Override
   public Object getResult() {
+    return null;
+  }
+
+  @Override
+  public Object getSelectedObject() {
     return null;
   }
 

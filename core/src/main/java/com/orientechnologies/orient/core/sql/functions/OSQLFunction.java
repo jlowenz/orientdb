@@ -37,10 +37,10 @@ import java.util.List;
  */
 public interface OSQLFunction {
 
-	/**
-	 * Process a record.
-	 * 
-	 *
+  /**
+   * Process a record.
+   * 
+   *
    * @param iThis
    * @param iCurrentRecord
    *          : current record
@@ -51,103 +51,119 @@ public interface OSQLFunction {
    * @param iContext
    *          : object calling this function
    * @return function result, can be null. Special cases : can be null if function aggregate results, can be null if function filter
-	 *         results : this mean result is excluded
-	 */
-	public Object execute(Object iThis, OIdentifiable iCurrentRecord, Object iCurrentResult, Object[] iParams, OCommandContext iContext);
+   *         results : this mean result is excluded
+   */
+  public Object execute(Object iThis, OIdentifiable iCurrentRecord, Object iCurrentResult, Object[] iParams,
+      OCommandContext iContext);
 
-	/**
-	 * Configure the function.
-	 * 
-	 * @param configuredParameters
-	 */
-	public void config(Object[] configuredParameters);
+  /**
+   * Configure the function.
+   * 
+   * @param configuredParameters
+   */
+  public void config(Object[] configuredParameters);
 
-	/**
-	 * A function can make calculation on several records before returning a result.
-	 * <p>
-	 * Example of such function : sum, count, max, min ...
-	 * <p>
-	 * The final result of the aggregation is obtain by calling {@link #getResult() }
-	 * 
-	 * @return true if function aggregate results
-	 */
-	public boolean aggregateResults();
+  /**
+   * A function can make calculation on several records before returning a result.
+   * <p>
+   * Example of such function : sum, count, max, min ...
+   * <p>
+   * The final result of the aggregation is obtain by calling {@link #getResult() }
+   * 
+   * @return true if function aggregate results
+   */
+  public boolean aggregateResults();
 
-	/**
-	 * A function can act both as transformation or filtering records. If the function may reduce the number final records than it
-	 * must return true.
-	 * <p>
-	 * Function should return null for the
-	 * {@linkplain #execute(Object, OIdentifiable, Object, Object[], OCommandContext)
-	 * execute} method if the record must be excluded.
-	 * 
-	 * @return true if the function acts as a record filter.
-	 */
-	public boolean filterResult();
+  /**
+   * During aggregation, a function may select a record to represent the result (e.g. min/max).
+   *
+   * The selected record is obtained by calling {@link #getSelectedObject()}.
+   *
+   * @return true if the function selects a record during aggregation
+   */
+  public boolean selectsRecordDuringAggregation();
 
-	/**
-	 * Function name, the name is used by the sql parser to identify a call this function.
-	 * 
-	 * @return String , function name, never null or empty.
-	 */
-	public String getName();
+  /**
+   * A function can act both as transformation or filtering records. If the function may reduce the number final records than it
+   * must return true.
+   * <p>
+   * Function should return null for the {@linkplain #execute(Object, OIdentifiable, Object, Object[], OCommandContext) execute}
+   * method if the record must be excluded.
+   * 
+   * @return true if the function acts as a record filter.
+   */
+  public boolean filterResult();
 
-	/**
-	 * Minimum number of parameter this function must have.
-	 * 
-	 * @return minimum number of parameters
-	 */
-	public int getMinParams();
+  /**
+   * Function name, the name is used by the sql parser to identify a call this function.
+   * 
+   * @return String , function name, never null or empty.
+   */
+  public String getName();
 
-	/**
-	 * Maximum number of parameter this function can handle.
-	 * 
-	 * @return maximum number of parameters ??? -1 , negative or Integer.MAX_VALUE for unlimited ???
-	 */
-	public int getMaxParams();
+  /**
+   * Minimum number of parameter this function must have.
+   * 
+   * @return minimum number of parameters
+   */
+  public int getMinParams();
 
-	/**
-	 * Returns a convinient SQL String representation of the function.
-	 * <p>
-	 * Example :
-	 * 
-	 * <pre>
-	 *  myFunction( param1, param2, [optionalParam3])
-	 * </pre>
-	 * 
-	 * This text will be used in exception messages.
-	 * 
-	 * @return String , never null.
-	 */
-	public String getSyntax();
+  /**
+   * Maximum number of parameter this function can handle.
+   * 
+   * @return maximum number of parameters ??? -1 , negative or Integer.MAX_VALUE for unlimited ???
+   */
+  public int getMaxParams();
 
-	/**
-	 * Only called when function aggregates results after all records have been passed to the function.
-	 * 
-	 * @return Aggregation result
-	 */
-	public Object getResult();
+  /**
+   * Returns a convinient SQL String representation of the function.
+   * <p>
+   * Example :
+   * 
+   * <pre>
+   *  myFunction( param1, param2, [optionalParam3])
+   * </pre>
+   * 
+   * This text will be used in exception messages.
+   * 
+   * @return String , never null.
+   */
+  public String getSyntax();
 
-	/**
-	 * Called by OCommandExecutor, given parameter is the number of results. ??? strange ???
-	 * 
-	 * @param iResult
-	 */
-	public void setResult(Object iResult);
+  /**
+   * Only called when function aggregates results after all records have been passed to the function.
+   * 
+   * @return Aggregation result
+   */
+  public Object getResult();
 
-	/**
-	 * This method correspond to distributed query execution
-	 * 
-	 * @return {@code true} if results that comes from different nodes need to be merged to obtain valid one, {@code false} otherwise
-	 */
-	public boolean shouldMergeDistributedResult();
+  /**
+   * Only called when the function selects a particular record for computing a value during aggregation (e.g. max/min)
+   *
+   * @return Record selected during aggregation
+   */
+  public Object getSelectedObject();
 
-	/**
-	 * This method correspond to distributed query execution
-	 * 
-	 * @param resultsToMerge
-	 *          is the results that comes from different nodes
-	 * @return is the valid merged result
-	 */
-	public Object mergeDistributedResult(List<Object> resultsToMerge);
+  /**
+   * Called by OCommandExecutor, given parameter is the number of results. ??? strange ???
+   * 
+   * @param iResult
+   */
+  public void setResult(Object iResult);
+
+  /**
+   * This method correspond to distributed query execution
+   * 
+   * @return {@code true} if results that comes from different nodes need to be merged to obtain valid one, {@code false} otherwise
+   */
+  public boolean shouldMergeDistributedResult();
+
+  /**
+   * This method correspond to distributed query execution
+   * 
+   * @param resultsToMerge
+   *          is the results that comes from different nodes
+   * @return is the valid merged result
+   */
+  public Object mergeDistributedResult(List<Object> resultsToMerge);
 }

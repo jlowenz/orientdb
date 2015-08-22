@@ -20,7 +20,10 @@
 package com.orientechnologies.orient.core.sql;
 
 import com.orientechnologies.common.profiler.OProfiler;
+import com.orientechnologies.common.serialization.types.BooleanSerializerTest;
 import com.orientechnologies.orient.core.Orient;
+import com.orientechnologies.orient.core.command.script.OCommandFunction;
+import com.orientechnologies.orient.core.command.script.OCommandScript;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.iterator.ORecordIteratorClass;
 import com.orientechnologies.orient.core.metadata.schema.OSchema;
@@ -35,13 +38,14 @@ import java.util.List;
 import java.util.Map;
 
 import static org.testng.Assert.*;
+import static org.testng.Assert.assertEquals;
 
 @Test
 public class OCommandExecutorSQLSelectTest {
   private static String DB_STORAGE = "memory";
   private static String DB_NAME    = "OCommandExecutorSQLSelectTest";
 
-  ODatabaseDocumentTx   db;
+  ODatabaseDocumentTx db;
 
   @BeforeClass
   public void beforeClass() throws Exception {
@@ -148,11 +152,19 @@ public class OCommandExecutorSQLSelectTest {
     }
 
     db.command(new OCommandSQL("create class OCommandExecutorSQLSelectTest_aggregations")).execute();
-    db.command(
-        new OCommandSQL(
-            "insert into OCommandExecutorSQLSelectTest_aggregations set data = [{\"size\": 0}, {\"size\": 0}, {\"size\": 30}, {\"size\": 50}, {\"size\": 50}]"))
+    db.command(new OCommandSQL(
+        "insert into OCommandExecutorSQLSelectTest_aggregations set data = [{\"size\": 0}, {\"size\": 0}, {\"size\": 30}, {\"size\": 50}, {\"size\": 50}]"))
         .execute();
 
+    // AST = AggregationSelectionTest
+    db.command(new OCommandSQL("create class AST")).execute();
+    db.command(new OCommandSQL("create property AST.name string")).execute();
+    db.command(new OCommandSQL("create property AST.order integer")).execute();
+    db.command(new OCommandSQL("create property AST.active boolean")).execute();
+
+    db.command(new OCommandSQL("insert into AST (name,order,active) values " +
+            "('a',3,false),('b',0,true),('c',0,true),('a',1,true)," +
+            "('a',0,true),('a',0,false)," + "('c',2,true),('c',1,false)")).execute();
   }
 
   @AfterClass
@@ -259,8 +271,8 @@ public class OCommandExecutorSQLSelectTest {
     List<ODocument> qResult7 = db.command(new OCommandSQL("select * from foo where (((name ='a' and bar = 1000)) or name = 'b')"))
         .execute();
 
-    List<ODocument> qResult8 = db
-        .command(new OCommandSQL("select * from foo where (((name ='a' and bar = 1000)) or (name = 'b'))")).execute();
+    List<ODocument> qResult8 = db.command(new OCommandSQL("select * from foo where (((name ='a' and bar = 1000)) or (name = 'b'))"))
+        .execute();
 
     assertEquals(qResult.size(), qResult2.size());
     assertEquals(qResult.size(), qResult3.size());
@@ -275,33 +287,28 @@ public class OCommandExecutorSQLSelectTest {
   @Test
   public void testOperatorPriority2() {
     List<ODocument> qResult = db
-        .command(
-            new OCommandSQL(
-                "select * from bar where name ='a' and foo = 1 or name='b' or name='c' and foo = 3 and other = 4 or name = 'e' and foo = 5 or name = 'm' and foo > 2 "))
+        .command(new OCommandSQL(
+            "select * from bar where name ='a' and foo = 1 or name='b' or name='c' and foo = 3 and other = 4 or name = 'e' and foo = 5 or name = 'm' and foo > 2 "))
         .execute();
 
     List<ODocument> qResult2 = db
-        .command(
-            new OCommandSQL(
-                "select * from bar where (name ='a' and foo = 1) or name='b' or (name='c' and foo = 3 and other = 4) or (name = 'e' and foo = 5) or (name = 'm' and foo > 2)"))
+        .command(new OCommandSQL(
+            "select * from bar where (name ='a' and foo = 1) or name='b' or (name='c' and foo = 3 and other = 4) or (name = 'e' and foo = 5) or (name = 'm' and foo > 2)"))
         .execute();
 
     List<ODocument> qResult3 = db
-        .command(
-            new OCommandSQL(
-                "select * from bar where (name ='a' and foo = 1) or (name='b') or (name='c' and foo = 3 and other = 4) or (name ='e' and foo = 5) or (name = 'm' and foo > 2)"))
+        .command(new OCommandSQL(
+            "select * from bar where (name ='a' and foo = 1) or (name='b') or (name='c' and foo = 3 and other = 4) or (name ='e' and foo = 5) or (name = 'm' and foo > 2)"))
         .execute();
 
     List<ODocument> qResult4 = db
-        .command(
-            new OCommandSQL(
-                "select * from bar where (name ='a' and foo = 1) or ((name='b') or (name='c' and foo = 3 and other = 4)) or (name = 'e' and foo = 5) or (name = 'm' and foo > 2)"))
+        .command(new OCommandSQL(
+            "select * from bar where (name ='a' and foo = 1) or ((name='b') or (name='c' and foo = 3 and other = 4)) or (name = 'e' and foo = 5) or (name = 'm' and foo > 2)"))
         .execute();
 
     List<ODocument> qResult5 = db
-        .command(
-            new OCommandSQL(
-                "select * from bar where (name ='a' and foo = 1) or ((name='b') or (name='c' and foo = 3 and other = 4) or (name = 'e' and foo = 5)) or (name = 'm' and foo > 2)"))
+        .command(new OCommandSQL(
+            "select * from bar where (name ='a' and foo = 1) or ((name='b') or (name='c' and foo = 3 and other = 4) or (name = 'e' and foo = 5)) or (name = 'm' and foo > 2)"))
         .execute();
 
     assertEquals(qResult.size(), qResult2.size());
@@ -314,33 +321,28 @@ public class OCommandExecutorSQLSelectTest {
   @Test
   public void testOperatorPriority3() {
     List<ODocument> qResult = db
-        .command(
-            new OCommandSQL(
-                "select * from bar where name <> 'a' and foo = 1 or name='b' or name='c' and foo = 3 and other = 4 or name = 'e' and foo = 5 or name = 'm' and foo > 2 "))
+        .command(new OCommandSQL(
+            "select * from bar where name <> 'a' and foo = 1 or name='b' or name='c' and foo = 3 and other = 4 or name = 'e' and foo = 5 or name = 'm' and foo > 2 "))
         .execute();
 
     List<ODocument> qResult2 = db
-        .command(
-            new OCommandSQL(
-                "select * from bar where (name <> 'a' and foo = 1) or name='b' or (name='c' and foo = 3 and other <>  4) or (name = 'e' and foo = 5) or (name = 'm' and foo > 2)"))
+        .command(new OCommandSQL(
+            "select * from bar where (name <> 'a' and foo = 1) or name='b' or (name='c' and foo = 3 and other <>  4) or (name = 'e' and foo = 5) or (name = 'm' and foo > 2)"))
         .execute();
 
     List<ODocument> qResult3 = db
-        .command(
-            new OCommandSQL(
-                "select * from bar where ( name <> 'a' and foo = 1) or (name='b') or (name='c' and foo = 3 and other <>  4) or (name ='e' and foo = 5) or (name = 'm' and foo > 2)"))
+        .command(new OCommandSQL(
+            "select * from bar where ( name <> 'a' and foo = 1) or (name='b') or (name='c' and foo = 3 and other <>  4) or (name ='e' and foo = 5) or (name = 'm' and foo > 2)"))
         .execute();
 
     List<ODocument> qResult4 = db
-        .command(
-            new OCommandSQL(
-                "select * from bar where (name <> 'a' and foo = 1) or ( (name='b') or (name='c' and foo = 3 and other <>  4)) or  (name = 'e' and foo = 5) or (name = 'm' and foo > 2)"))
+        .command(new OCommandSQL(
+            "select * from bar where (name <> 'a' and foo = 1) or ( (name='b') or (name='c' and foo = 3 and other <>  4)) or  (name = 'e' and foo = 5) or (name = 'm' and foo > 2)"))
         .execute();
 
     List<ODocument> qResult5 = db
-        .command(
-            new OCommandSQL(
-                "select * from bar where (name <> 'a' and foo = 1) or ((name='b') or (name='c' and foo = 3 and other <>  4) or (name = 'e' and foo = 5)) or (name = 'm' and foo > 2)"))
+        .command(new OCommandSQL(
+            "select * from bar where (name <> 'a' and foo = 1) or ((name='b') or (name='c' and foo = 3 and other <>  4) or (name = 'e' and foo = 5)) or (name = 'm' and foo > 2)"))
         .execute();
 
     assertEquals(qResult.size(), qResult2.size());
@@ -402,8 +404,8 @@ public class OCommandExecutorSQLSelectTest {
   public void testParamsInLetSubquery() {
     Map<String, Object> params = new HashMap<String, Object>();
     params.put("name", "foo");
-    List<ODocument> qResult = db.command(
-        new OCommandSQL(
+    List<ODocument> qResult = db
+        .command(new OCommandSQL(
             "select from TestParams let $foo = (select name from TestParams where surname = :name) where surname in $foo.name "))
         .execute(params);
     assertEquals(qResult.size(), 1);
@@ -583,12 +585,12 @@ public class OCommandExecutorSQLSelectTest {
   public void testMultipleParamsWithSameName() {
     Map<String, Object> params = new HashMap<String, Object>();
     params.put("param1", "foo");
-    List<ODocument> qResult = db.command(new OCommandSQL("select from TestParams where name like '%' + :param1 + '%'")).execute(
-        params);
+    List<ODocument> qResult = db.command(new OCommandSQL("select from TestParams where name like '%' + :param1 + '%'"))
+        .execute(params);
     assertEquals(qResult.size(), 2);
 
-    qResult = db.command(
-        new OCommandSQL("select from TestParams where name like '%' + :param1 + '%' and surname like '%' + :param1 + '%'"))
+    qResult = db
+        .command(new OCommandSQL("select from TestParams where name like '%' + :param1 + '%' and surname like '%' + :param1 + '%'"))
         .execute(params);
     assertEquals(qResult.size(), 1);
 
@@ -661,16 +663,57 @@ public class OCommandExecutorSQLSelectTest {
 
   @Test
   public void testAggregations() {
-    OSQLSynchQuery sql = new OSQLSynchQuery(
-        "select data.size as collection_content, data.size() as collection_size, min(data.size) as collection_min, max(data.size) as collection_max, sum(data.size) as collection_sum, avg(data.size) as collection_avg from OCommandExecutorSQLSelectTest_aggregations");
+    OSQLSynchQuery sql = new OSQLSynchQuery("select data.size as collection_content, data.size() as collection_size, "
+        + "min(data.size) as collection_min, " + "max(data.size) as collection_max, " + "sum(data.size) as collection_sum, "
+        + "avg(data.size) as collection_avg " + "from OCommandExecutorSQLSelectTest_aggregations");
     List<ODocument> results = db.query(sql);
     assertEquals(1, results.size());
     ODocument doc = results.get(0);
-    assertEquals(5, doc.field("collection_size"));
-    assertEquals(130, doc.field("collection_sum"));
-    assertEquals(26, doc.field("collection_avg"));
-    assertEquals(0, doc.field("collection_min"));
-    assertEquals(50, doc.field("collection_max"));
+    assertEquals(doc.field("collection_size"), (Integer) 5);
+    assertEquals(doc.field("collection_sum"), (Integer) 130);
+    assertEquals(doc.field("collection_avg"), (Integer) 26);
+    assertEquals(doc.field("collection_min"), (Integer) 0);
+    assertEquals(doc.field("collection_max"), (Integer) 50);
+  }
+
+  @Test
+  public void testAggregationRecordSelection() {
+    OSQLSynchQuery sql = new OSQLSynchQuery("select name,max(order) as order,active from AST group by name order by name asc");
+    List<ODocument> results = db.query(sql);
+    assertEquals(results.size(), 3);
+    ODocument a_rec = results.get(0);
+    ODocument b_rec = results.get(1);
+    ODocument c_rec = results.get(2);
+    // verify the record names are correct
+    assertEquals(a_rec.field("name"), "a");
+    assertEquals(b_rec.field("name"), "b");
+    assertEquals(c_rec.field("name"), "c");
+    // check that the max values are correct
+    assertEquals(a_rec.field("order"), (Integer) 3);
+    assertEquals(b_rec.field("order"), (Integer) 0);
+    assertEquals(c_rec.field("order"), (Integer) 2);
+    // check that the corresponding fields match for a and c record
+    assertEquals(a_rec.field("active"), (Boolean) false);
+    assertEquals(c_rec.field("active"), (Boolean) true);
+
+    sql = new OSQLSynchQuery("select name,min(order) as order,active from AST group by name order by name asc");
+    results = db.query(sql);
+    assertEquals(results.size(), 3);
+    a_rec = results.get(0);
+    b_rec = results.get(1);
+    c_rec = results.get(2);
+    // verify the record names are correct
+    assertEquals(a_rec.field("name"), "a");
+    assertEquals(b_rec.field("name"), "b");
+    assertEquals(c_rec.field("name"), "c");
+    // check that the min values are correct
+    assertEquals(a_rec.field("order"), (Integer) 0);
+    assertEquals(b_rec.field("order"), (Integer) 0);
+    assertEquals(c_rec.field("order"), (Integer) 0);
+    // check that the corresponding fields match for a and c record
+    assertEquals(a_rec.field("active"), (Boolean) false);
+    assertEquals(b_rec.field("active"), (Boolean) true);
+    assertEquals(c_rec.field("active"), (Boolean) true);
   }
 
   @Test
@@ -716,7 +759,6 @@ public class OCommandExecutorSQLSelectTest {
     assertEquals(results.size(), 1);
     ODocument doc = results.get(0);
     assertEquals(doc.field("r"), 10);
-
 
   }
 

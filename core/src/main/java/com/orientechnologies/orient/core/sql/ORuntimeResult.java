@@ -186,12 +186,20 @@ public class ORuntimeResult {
   }
 
   public static ODocument getResult(final ODocument iValue, final Map<String, Object> iProjections) {
-    if (iValue != null) {
+    ODocument rValue = iValue;
+    if (rValue != null) {
 
       boolean canExcludeResult = false;
 
+      int numFunctions = 0;
+      for (Entry<String, Object> proj : iProjections.entrySet()) {
+        final Object v = proj.getValue();
+        if (v instanceof OSQLFunctionRuntime) {
+          numFunctions++;
+        }
+      }
       for (Entry<String, Object> projection : iProjections.entrySet()) {
-        if (!iValue.containsField(projection.getKey())) {
+        if (!rValue.containsField(projection.getKey())) {
           // ONLY IF NOT ALREADY CONTAINS A VALUE, OTHERWISE HAS BEEN SET MANUALLY (INDEX?)
           final Object v = projection.getValue();
           if (v instanceof OSQLFunctionRuntime) {
@@ -199,25 +207,28 @@ public class ORuntimeResult {
             canExcludeResult = f.filterResult();
 
             Object fieldValue = f.getResult();
-
-            if (fieldValue != null)
-              iValue.field(projection.getKey(), fieldValue);
+            if (f.function.selectsRecordDuringAggregation() && numFunctions == 1) {
+              // we can only select a record when there is a single function projection
+              rValue = ((ODocument) f.function.getSelectedObject()).copy();
+              rValue.field(projection.getKey(), fieldValue);
+            } else if (fieldValue != null)
+              rValue.field(projection.getKey(), fieldValue);
           }
         }
       }
 
-      if (canExcludeResult && iValue.isEmpty())
+      if (canExcludeResult && rValue.isEmpty())
         // RESULT EXCLUDED FOR EMPTY RECORD
         return null;
 
       // AVOID SAVING OF TEMP RECORD
-      ORecordInternal.unsetDirty(iValue);
+      ORecordInternal.unsetDirty(rValue);
     }
-    return iValue;
+    return rValue;
   }
 
-  public static ODocument getProjectionResult(final int iId, final Map<String, Object> iProjections,
-      final OCommandContext iContext, final OIdentifiable iRecord) {
+  public static ODocument getProjectionResult(final int iId, final Map<String, Object> iProjections, final OCommandContext iContext,
+      final OIdentifiable iRecord) {
     return ORuntimeResult.getResult(
         ORuntimeResult.applyRecord(ORuntimeResult.createProjectionDocument(iId), iProjections, iContext, iRecord), iProjections);
   }

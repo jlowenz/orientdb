@@ -36,7 +36,8 @@ import java.util.List;
 public class OSQLFunctionMin extends OSQLFunctionMathAbstract {
   public static final String NAME = "min";
 
-  private Object             context;
+  private Object context;
+  private Object selected;
 
   public OSQLFunctionMin() {
     super(NAME, 1, -1);
@@ -64,19 +65,22 @@ public class OSQLFunctionMin extends OSQLFunctionMathAbstract {
     // what to do with the result, for current record, depends on how this function has been invoked
     // for an unique result aggregated from all output records
     if (aggregateResults() && min != null) {
-      if (context == null)
+      if (context == null) {
         // FIRST TIME
         context = (Comparable) min;
-      else {
+        selected = iThis;
+      } else {
         if (context instanceof Number && min instanceof Number) {
           final Number[] casted = OType.castComparableNumber((Number) context, (Number) min);
           context = casted[0];
           min = casted[1];
         }
 
-        if (((Comparable<Object>) context).compareTo((Comparable) min) > 0)
+        if (((Comparable<Object>) context).compareTo((Comparable) min) > 0) {
           // MINOR
           context = (Comparable) min;
+          selected = iThis;
+        }
       }
 
       return null;
@@ -91,6 +95,11 @@ public class OSQLFunctionMin extends OSQLFunctionMathAbstract {
     return ((configuredParameters.length == 1) && !configuredParameters[0].toString().contains("$current"));
   }
 
+  @Override
+  public boolean selectsRecordDuringAggregation() {
+    return true;
+  }
+
   public String getSyntax() {
     return "min(<field> [,<field>*])";
   }
@@ -98,6 +107,11 @@ public class OSQLFunctionMin extends OSQLFunctionMathAbstract {
   @Override
   public Object getResult() {
     return context;
+  }
+
+  @Override
+  public Object getSelectedObject() {
+    return selected;
   }
 
   @SuppressWarnings("unchecked")
@@ -110,9 +124,10 @@ public class OSQLFunctionMin extends OSQLFunctionMathAbstract {
       if (context == null)
         // FIRST TIME
         context = value;
-      else if (context.compareTo(value) > 0)
-        // BIGGER
-        context = value;
+      else
+        if (context.compareTo(value) > 0)
+          // BIGGER
+          context = value;
     }
     return context;
   }

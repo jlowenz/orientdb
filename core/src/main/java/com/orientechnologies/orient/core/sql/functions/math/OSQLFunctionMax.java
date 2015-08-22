@@ -36,7 +36,8 @@ import com.orientechnologies.orient.core.metadata.schema.OType;
 public class OSQLFunctionMax extends OSQLFunctionMathAbstract {
   public static final String NAME = "max";
 
-  private Object             context;
+  private Object context;
+  private Object selected;
 
   public OSQLFunctionMax() {
     super(NAME, 1, -1);
@@ -64,18 +65,21 @@ public class OSQLFunctionMax extends OSQLFunctionMathAbstract {
     // what to do with the result, for current record, depends on how this function has been invoked
     // for an unique result aggregated from all output records
     if (aggregateResults() && max != null) {
-      if (context == null)
+      if (context == null) {
         // FIRST TIME
         context = (Comparable) max;
-      else {
+        selected = iThis;
+      } else {
         if (context instanceof Number && max instanceof Number) {
           final Number[] casted = OType.castComparableNumber((Number) context, (Number) max);
           context = casted[0];
           max = casted[1];
         }
-        if (((Comparable<Object>) context).compareTo((Comparable) max) < 0)
+        if (((Comparable<Object>) context).compareTo((Comparable) max) < 0) {
           // BIGGER
           context = (Comparable) max;
+          selected = iThis;
+        }
       }
 
       return null;
@@ -90,6 +94,11 @@ public class OSQLFunctionMax extends OSQLFunctionMathAbstract {
     return ((configuredParameters.length == 1) && !configuredParameters[0].toString().contains("$current"));
   }
 
+  @Override
+  public boolean selectsRecordDuringAggregation() {
+    return true;
+  }
+
   public String getSyntax() {
     return "max(<field> [,<field>*])";
   }
@@ -97,6 +106,11 @@ public class OSQLFunctionMax extends OSQLFunctionMathAbstract {
   @Override
   public Object getResult() {
     return context;
+  }
+
+  @Override
+  public Object getSelectedObject() {
+    return selected;
   }
 
   @SuppressWarnings("unchecked")
@@ -109,9 +123,10 @@ public class OSQLFunctionMax extends OSQLFunctionMathAbstract {
       if (context == null)
         // FIRST TIME
         context = value;
-      else if (context.compareTo(value) < 0)
-        // BIGGER
-        context = value;
+      else
+        if (context.compareTo(value) < 0)
+          // BIGGER
+          context = value;
     }
     return context;
   }
